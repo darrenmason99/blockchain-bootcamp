@@ -9,17 +9,27 @@ contract BattleshipsV1 is Battleships {
     mapping(address => uint8[][]) private boards;
     mapping(address => bool) private currentPlayer;
     mapping(address => uint8[]) private shipsPlaced;
+    mapping(address => ShipInstance[]) private shipInstances;
 
     enum GameStates { NotPlaying, GameCreated, PlacingShips, PlayingGame, GameOver }
     mapping(address => GameStates) private gameState;
 
-    enum ShipTypes { Empty, Tug, Frigate, Destroyer, Battleship, Carrier }
+    enum ShipTypes { Empty, Tug, Frigate, Destroyer, Battleship, Carrier, Hit }
     uint8[8][8] private defaultBoard;
 
     struct ShipInfo {
         uint8 width;
         uint8 depth;
         uint8 count;
+    }
+
+    struct ShipPosition {
+        uint8 x;
+        uint8 y;
+    }
+
+    struct ShipInstance {
+        ShipPosition[] positions;
     }
 
     ShipInfo[] private defaultShips;
@@ -104,14 +114,19 @@ contract BattleshipsV1 is Battleships {
         ShipInfo memory thisShip = defaultShips[ship];
         uint8[] storage thisShipsPlaced = shipsPlaced[player];
 
+        ShipInstance memory thisInstance = ShipInstance(new ShipPosition[](thisShip.width * thisShip.depth));
+
         // Make sure that there is still a count of these ships to place
         require(thisShipsPlaced[ship] < thisShip.count);
+        uint8 count = 0;
 
         if (direction == 0) {
             for (uint8 idxX = x; idxX < (x + thisShip.width); idxX++) {
                 for (uint8 idxY = y; idxY < (y + thisShip.depth); idxY++) {
                     assert(boards[player][idxX][idxY] == uint8(ShipTypes.Empty));
                     boards[player][idxX][idxY] = ship;
+                    thisInstance.positions[count] = ShipPosition(idxX, idxY);
+                    count = count + 1;
                 }
             }
 
@@ -120,10 +135,15 @@ contract BattleshipsV1 is Battleships {
                 for (idxY = y; idxY < (y + thisShip.width); idxY++) {
                     assert(boards[player][idxX][idxY] == uint8(ShipTypes.Empty));
                     boards[player][idxX][idxY] = ship;
+                    thisInstance.positions[count] = ShipPosition(idxX, idxY);
+                    count = count + 1;
                 }
             }
 
         }
+
+        // TODO: This is an uniplemented feature
+        //shipInstances[player].push(thisInstance);
 
         // Place another ship in the total list, and the specific list
         thisShipsPlaced[0] = thisShipsPlaced[0] + 1;
@@ -156,7 +176,13 @@ contract BattleshipsV1 is Battleships {
     {
         address player = msg.sender;
         address opponent = opponents[player];
-        uint8 result = 0; // TODO: Calculate this
+        uint8 cell = boards[msg.sender][x][y];
+        bool hitShip = (cell != uint8(ShipTypes.Empty) && cell != uint8(ShipTypes.Hit));
+        uint8 result = 0;
+        if (hitShip) {
+            result = 1;
+        }
+
         uint8 hitsPercentage = 0; // TODO: Calculate this
         uint8 shipId = 10; // TODO: Get it from somewhere?
 
